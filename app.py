@@ -27,11 +27,10 @@ class AnimatedAudioVisualizer:
         """Generate the frame for time `t`."""
         fig, (ax_waveform, ax_spectrogram) = plt.subplots(1, 2, figsize=(18, 5))
 
-         # Set background to black
+        # Set background to black
         fig.patch.set_facecolor('black')  # Black background for the figure
         ax_waveform.set_facecolor('black')  # Black background for the waveform axis
         ax_spectrogram.set_facecolor('black')  # Black background for the spectrogram axis
-
 
         # Determine the segment of the audio to plot based on time `t`
         samples_per_frame = int(sr / self.fps)
@@ -52,7 +51,7 @@ class AnimatedAudioVisualizer:
             hop_length = 512  # Controls the overlap in STFT
             n_fft = 2048  # FFT window size
             D = librosa.amplitude_to_db(librosa.stft(y[start:end], n_fft=n_fft, hop_length=hop_length), ref=np.max)
-            
+
             # Plot the spectrogram as an image
             img = ax_spectrogram.imshow(D, aspect='auto', origin='lower', cmap='inferno', extent=[start, end, 0, sr // 2])
             ax_spectrogram.set_title("Spectrogram")
@@ -91,21 +90,28 @@ class AnimatedAudioVisualizer:
 @app.post("/upload/")
 async def create_visualization(file: UploadFile = File(...), type: str = 'waveform', fps: int = 30):
     """API endpoint to process uploaded audio and return the visualized MP4 video."""
-    # Save uploaded file temporarily
     try:
         # Save the uploaded file to a temporary location
         temp_file_path = f"temp_{file.filename}"
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        # Define the output folder
+        output_folder = "output_folder"  # Set the path to the desired output directory
+        os.makedirs(output_folder, exist_ok=True)
+
+        # Set the output file path with the same name as the uploaded file
+        output_path = os.path.join(output_folder, f"output_{file.filename}.mp4")
+
         # Call your function that processes the file
-        output_path = f"output_{file.filename}.mp4"
         visualizer = AnimatedAudioVisualizer(visualization_type=type, fps=fps)
         visualizer.create_visualization(temp_file_path, output_path)
 
         # Return the processed video
         return FileResponse(output_path, media_type="video/mp4")
+
     except Exception as e:
+        logging.error(f"Failed to process file: {str(e)}")
         return {"error": f"Failed to process file: {str(e)}"}
     finally:
         # Clean up the temporary file
